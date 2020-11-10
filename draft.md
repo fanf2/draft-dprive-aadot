@@ -73,7 +73,7 @@ TLSA records [@!RFC6698] can indicate that a host supports TLS for a
 particular service. DNS-over-TLS uses TCP port 853, so an
 authoritative server can advertise support for encryption like
 
-        ns1.hoster.example.    TLSA    0 1 1 ( ... )
+        _853._tcp.ns1.hoster.example.    TLSA    0 1 1 ( ... )
 
 The profile of TLSA for authoritative DNS servers is in (#tlsa).
 
@@ -123,6 +123,181 @@ Many security considerations are discussed in (#rationale).
 
 
 # Rationale {#rationale}
+
+This section discusses the constraints on how the DNS can be updated
+to include transport encryption.
+
+
+## Explicit encryption support signal
+
+How can a resolver know an authoritative server supports encryption?
+There are three basic alternatives:
+
+ 1. No explicit signal: the resolver tries to make an encrypted
+    connection, and falls back to cleartext if it gets an ICMP
+    unreachable error or connection timeout.
+
+	This is problematic because connection timeouts can be very slow,
+    especially if the resolver tries multiple encrypted transports.
+    This is also is vulnerable to downgrade attacks.
+
+	The working group consensus is that an explicit signal is
+    required.
+
+ 2. Signal in an EDNS [@?RFC6891] or DSO [@?RFC8490] option: the
+    resolver starts by connecting in the clear, and upgrades to an
+    encrypted connection if the authoritative server supports it.
+
+	This is vulnerable to downgrade attacks. The initial cleartext
+    connection adds latency, and would need to be specified carefully
+    to avoid privacy leaks.
+
+ 3. Signal in DNS records: the resolver makes extra queries during
+    iterative resolution to find out whether an authoritative server
+    supports encryption before the resolver connects.
+
+    The extra queries add latency, though that can be mitigated by
+    querying concurrently, and by placing the new records on the
+    existing resolution path.
+
+	DNSSEC can provide authentication and downgrade protection.
+
+This specification takes the last option, since it is best for
+security and not too bad for performance.
+
+
+## Where can nameserver encryption records go?
+
+Where can we put the new DNS records to signal that a nameserver
+supports encryption? There are a few issues to consider:
+
+  1. Performance: we don't want the extra queries to slow down
+     resolution too much;
+
+  2. Authentication: DNSSEC does not protect delegation NS records or
+     glue address records;
+
+  3. DNS data model: we ought to re-use existing RRtypes according to
+     their intended purpose;
+
+  4. DNS extensibility: make use of well-oiled upgrade points and
+     avoid changes that have a track record of very slow deployment;
+
+  5. EPP compatibility: a zone's delegation is usually managed via the
+     Extensible Provisioning Protocol [@?RFC5730] [@?RFC5731]
+     [@?RFC5732] so any changes need to work with EPP.
+
+The following subsections discuss the possible locations, and explain
+why most of them have been rejected.
+
+
+## In the reverse DNS?
+
+Given a nameserver's IP address, a resolver might make a query like
+
+        _853._tcp.1.2.0.192.in-addr.arpa.    TLSA?
+
+This possibility is rejected because:
+
+  * It would be very slow: after receiving a referral, a resolver
+    would have to iterate down the reverse DNS, instead of immediately
+    following the referral.
+
+  * At the moment the reverse DNS refers to the forward DNS for NS
+    records; this would make the forward DNS refer to the reverse DNS
+    for TLSA records. Dependency loops are best avoided.
+
+  * It's often difficult to put arbitrary records in the reverse DNS.
+
+  * Encryption would apply to the server as a whole, whereas the
+    working group consensus is that it should be possible for
+    different zones on the same server to use encrypted and
+    unencrypted transports.
+
+
+## A new kind of delegation?
+
+In theory, DNSSEC provides a way to update the DNS data model, along
+the lines of the way NSEC3 was introduced [@?RFC5155]. The rough idea
+is to introduce new DNSSEC algorithm types to indicate that a zone can
+include new types of records that need special validation logic.
+Existing validators will be able to resolve names in the zone, but
+will treat it as insecure.
+
+We might use this upgrade strategy to introduce new delegation records
+that indicate support for transport encryption. However, it would
+require a very long deployment timeline. It would also require a
+corresponding upgrade to EPP.
+
+This is much too difficult.
+
+
+## Non-delegation records in the parent zone?
+
+It's extremely difficult to change which DNS records can appear in a
+delegation: they are restricted to NS, DS, and glue addresses. But in
+principle the parent zone could contain information about a delegation
+in a separate subdomain, like
+
+        myzone.example.    NS    ns1.myzone.example.
+		myzone.example.    NS    ns2.myzone.example.
+		_853._tcp.ns1.myzone._dot.example.    TLSA (...)
+		_853._tcp.ns2.myzone._dot.example.    TLSA (...)
+
+The `_dot` tag makes the TLSA records into authoritative data in the
+parent zone, rather than non-authoritative glue. The parent zone's
+nameservers could include these records as additional data in
+referrals. The resolver could authenticate them with DNSSEC and
+immediately use an encrypted connection to the child zone's nameservers.
+
+Although this idea would be secure and fast, it is incompatible with
+EPP, so it is not deployable.
+
+
+## Encryption signal in DS records?
+
+The basic idea is to introduce a special DNSSEC algorithm number that
+can be used in DS records to indicate support for encryption. This
+runs into a number of problems, ultimately because it's trying to
+abuse DS records for an unintended purpose.
+
+  * DS records are per-zone, whereas encryption support is per-server.
+    Support for incremental deployment would need a hack like having a
+    DS record per nameserver, with further hacks to make it possible
+    for humans to understand encryption DS records.
+
+  * DS records can be updated by the child zone's DNSSEC key manager
+    using CDS and/or CDNSKEY records [@?RFC8078]; CDS implementations
+    would need to be updated to avoid interfering with encryption DS
+    records.
+
+  * There is a similar problem with ensuring that these DS records can
+    be updated through EPP. There are registries that generate DS
+    records from DNSKEY records themselves, rather than using DS
+    records submitted by the zone owner, so these encryption DS
+    records would have to be specified as the hash of a special DNSKEY
+    record.
+
+  * There are orders of magnitude more zones than there are
+    nameservers. If the encryption signal is per-zone like this idea,
+    then it requires orders of magnitude more work to deploy.
+
+
+## Encryption signal in nameserver addresses?
+
+Could we abuse special IP addresses (such as a new special-use IPv6
+address block) to signal support for encryption? This terrible idea is
+listed for completeness; it's bad because:
+
+  * It will cause problems for resolvers and other software that
+    doesn't understand the special IP addresses and tries to use them
+    as normal IP addresses;
+
+  * Glue addresses are not authenticated by DNSSEC so it's vulnerable
+    to downgrade attacks.
+
+
+## Encryption signal alongside nameserver addresses
 
 
 
