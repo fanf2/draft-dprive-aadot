@@ -13,7 +13,7 @@ keyword         = [
 
 [seriesInfo]
 name            = "Internet-Draft"
-value           = "draft-fanf-dprive-adot-00"
+value           = "draft-fanf-dprive-adot-01"
 status          = "standard"
 
 [[author]]
@@ -113,7 +113,8 @@ DNS-related terminology can be found in [@!RFC8499].
 The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**,
 **SHALL NOT**, **SHOULD**, **SHOULD NOT**, **RECOMMENDED**, **MAY**,
 and **OPTIONAL** in this document are to be interpreted as described in
-[@!RFC2119].
+BCP 14 [@!RFC2119] [@!RFC8174] when, and only when, they appear in all
+capitals, as shown here.
 
 
 # TLSA records for name servers {#tlsa}
