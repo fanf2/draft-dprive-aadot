@@ -11,7 +11,8 @@ git add draft.md
 git commit --allow-empty -m $filename
 # update commit so it contains its own timestamp
 filename=$(./stamp.sh)
-git add draft.md
+make
+git add draft.md $filename.xml $filename.html $filename.txt
 git commit --allow-empty --no-edit --amend
 # move the tag to the correct commit
 git tag --delete $filename

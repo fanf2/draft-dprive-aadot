@@ -5,7 +5,7 @@ workgroup       = "DNS Privacy"
 area            = "Internet"
 submissiontype  = "IETF"
 ipr             = "trust200902"
-date            = 2020-11-11T18:45:29Z
+date            = 2020-11-11T18:51:32Z
 keyword         = [
     "DNS",
     "TLS",
@@ -13,7 +13,7 @@ keyword         = [
 
 [seriesInfo]
 name            = "Internet-Draft"
-value           = "draft-fanf-dprive-adot-01"
+value           = "draft-fanf-dprive-adot-00"
 status          = "standard"
 
 [[author]]
