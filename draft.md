@@ -5,7 +5,7 @@ workgroup       = "DNS Privacy"
 area            = "Internet"
 submissiontype  = "IETF"
 ipr             = "trust200902"
-date            = 2020-11-11T17:11:09Z
+date            = 2020-11-11T18:12:35Z
 keyword         = [
     "DNS",
     "TLS",
@@ -40,6 +40,10 @@ organization    = "University of Cambridge"
 This note describes how a DNS resolver can establish an encrypted
 DNS-over-TLS connection to an authoritative DNS server, authenticated
 using TLSA records.
+
+At the moment the specification is just a sketch. The main purpose of
+this early draft is to discuss the rationale, which examines the
+various options for adding encryption to the DNS.
 
 
 {mainmatter}
