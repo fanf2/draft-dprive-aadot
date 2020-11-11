@@ -13,7 +13,7 @@ filename=$(sed '
 sed '/^%%%/,/^%%%/s/\(^date[	 ]*=[	 ]*\).*/\1'$date'/' \
     <draft.md >draft.stamp
 
-if ! diff -u draft.stamp draft.md 1>&2
+if ! diff -u draft.md draft.stamp 1>&2
 then mv draft.stamp draft.md
 else rm draft.stamp
 fi
