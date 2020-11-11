@@ -5,7 +5,7 @@ workgroup       = "DNS Privacy"
 area            = "Internet"
 submissiontype  = "IETF"
 ipr             = "trust200902"
-date            = 2020-11-10T18:00:59Z
+date            = 2020-11-11T16:00:14Z
 keyword         = [
     "DNS",
     "TLS",
@@ -174,16 +174,18 @@ supports encryption? There are a few issues to consider:
   1. Performance: we don't want the extra queries to slow down
      resolution too much;
 
-  2. Authentication: DNSSEC does not protect delegation NS records or
+  2. Scalability: is encryption configured per nameserver? per zone?
+
+  3. Authentication: DNSSEC does not protect delegation NS records or
      glue address records;
 
-  3. DNS data model: we ought to re-use existing RRtypes according to
+  4. DNS data model: we ought to re-use existing RRtypes according to
      their intended purpose;
 
-  4. DNS extensibility: make use of well-oiled upgrade points and
+  5. DNS extensibility: make use of well-oiled upgrade points and
      avoid changes that have a track record of very slow deployment;
 
-  5. EPP compatibility: a zone's delegation is usually managed via the
+  6. EPP compatibility: a zone's delegation is usually managed via the
      Extensible Provisioning Protocol [@?RFC5730] [@?RFC5731]
      [@?RFC5732] so any changes need to work with EPP.
 
@@ -234,10 +236,9 @@ This is much too difficult.
 
 ## Non-delegation records in the parent zone?
 
-It's extremely difficult to change which DNS records can appear in a
-delegation: they are restricted to NS, DS, and glue addresses. But in
-principle the parent zone could contain information about a delegation
-in a separate subdomain, like
+Although it's extremely difficult to change which DNS records can
+appear at a delegation, in principle the parent zone could contain
+information about a delegation in a separate subdomain, like
 
         zone.example.    NS    ns1.zone.example.
         zone.example.    NS    ns2.zone.example.
@@ -250,8 +251,8 @@ nameservers could include these records as additional data in
 referrals. The resolver could authenticate them with DNSSEC and
 immediately use an encrypted connection to the child zone's nameservers.
 
-Although this idea would be secure and fast, it is incompatible with
-EPP, so it is not deployable.
+Although this idea would be secure and fast and compatible with the
+DNS, it is incompatible with EPP, so it is not deployable.
 
 
 ## New DS record algorithm?
@@ -298,6 +299,34 @@ listed for completeness; it's bad because:
     nameserver is insecure.
 
 
+## Authenticator in nameserver hostname?
+
+We might signal support for encryption is in the nameserver hostname
+itself, like [@?DNScurve]. There is room for more than 300 bits in a
+domain name label, which is enough space to pack an authenticator
+(such as a cryptographic hash of a certificate) into the hostname.
+
+This trick would be compatible with the existing DNS and EPP, and it
+avoids adding delays. But there are problems.
+
+This idea would involve specifying a label format with roughly the
+same functionality as a TLSA record.
+
+Nameserver hostnames appear both in the zone's apex NS RRset, which
+can be authenticated by DNSSEC, and in the delegation NS RRset, which
+is not authenticated. So referrals are vulnerable to
+encryption-stripping downgrade attacks if the connection to the parent
+zone's nameserver is insecure.
+
+But the showstopper is its horrible scalability, worse than the DS
+record idea: every zone's delegation and apex NS RRsets need to be
+updated to support encryption, and changed whenever a nameserver's key
+changes. Nameserver operators and zone owners are often different
+people, so key changes would require communication across multiple
+organization boundaries. Normal DNSSEC DS record updates involve the
+zone owner, primary server operator, and registrar; this idea involves
+all of them plus the secondary server operators.
+
 ## TLSA records alongside nameserver addresses
 
 This idea is to use TLSA records in a straightforward way:
@@ -312,8 +341,9 @@ DNSSEC, which protects against downgrade attacks.
 
 It does not add any significant delay compared to a resolver that
 validates nameserver addresses: when the resolver queries for the
-nameserver's A and AAAA records, and the zone's DNSKEY records, it can
-also concurrently request the nameserver's TLSA records.
+nameserver's A and AAAA records, and the nameserver's zone's DNSKEY
+records, it can also concurrently request the nameserver's TLSA
+records.
 
 There is a clear framework for supporting other transports such as
 QUIC, by adding more TLSA records. (With the caveat that each new
@@ -345,24 +375,27 @@ can remain private.
 
 ## Encryption hint in nameserver hostname
 
-The last place where we might signal support for encryption is in the
-nameserver hostname itself. There are a couple of ways this might be
-done:
+Unlike embedding a complete authenticator in the nameserver hostname,
+this idea adds a tag such as `dot--` to indicate that the nameserver
+supports an encrypted transport. The nameserver's authenticators are
+published in TLSA records.
 
-  * Just a hint that encrypted connections are possible;
-
-  * Pack an authenticator into the hostname. (There is room for more
-    than 300 bits in a domain name label.)
-
-Nameserver hostnames appear both in the zone's apex NS RRset, which
-can be authenticated by DNSSEC, and in the delegation NS RRset, which
-is not authenticated. So referrals are vulnerable to
-encryption-stripping downgrade attacks if the connection to the parent
-zone's nameserver is insecure.
+This idea avoids the scalability problems, because encryption hints
+are only needed for nameservers that require glue ([@?RFC1034] section
+4.2.1) and which cannot tolerate the privacy leak and delay that occur
+when a resolver upgrades to an encrypted connection after fetching a
+nameserver's TLSA records. Most zones can continue use the same
+nameserver hostnames they use now, without `dot--` tags, as discussed
+in (#hints).
 
 
 
 {backmatter}
 
-
-# Acknowledgments
+<reference anchor='DNScurve' target='https://dnscurve.org/'>
+    <front>
+        <title>DNSCurve: Usable security for DNS</title>
+        <author initials='D.J.' surname='Bernstein'/>
+        <date year='2009'/>
+    </front>
+</reference>
