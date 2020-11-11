@@ -1,7 +1,7 @@
 Authenticated transport encryption for authoritative DNS
 ========================================================
 
-Run `make` to rebuild the generated files from the `.md` source.
+Run `make` to rebuild the generated files from the `draft.md` source.
 
 The markdown source is converted to RFC XML format using `mmark`
 
@@ -30,4 +30,4 @@ in discussions there, especially for substantive discussion of
 technical issues.
 
 You might also like to familiarize yourself with other
-[dnsop working group documents](https://datatracker.ietf.org/wg/dns-privacy/documents/).
+[dprive working group documents](https://datatracker.ietf.org/wg/dns-privacy/documents/).
