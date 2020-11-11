@@ -5,7 +5,7 @@ workgroup       = "DNS Privacy"
 area            = "Internet"
 submissiontype  = "IETF"
 ipr             = "trust200902"
-date            = 2020-11-09T18:50:43Z
+date            = 2020-11-10T18:00:59Z
 keyword         = [
     "DNS",
     "TLS",
@@ -137,18 +137,18 @@ There are three basic alternatives:
     connection, and falls back to cleartext if it gets an ICMP
     unreachable error or connection timeout.
 
-	This is problematic because connection timeouts can be very slow,
+    This is problematic because connection timeouts can be very slow,
     especially if the resolver tries multiple encrypted transports.
     This is also is vulnerable to downgrade attacks.
 
-	The working group consensus is that an explicit signal is
+    The working group consensus is that an explicit signal is
     required.
 
  2. Signal in an EDNS [@?RFC6891] or DSO [@?RFC8490] option: the
     resolver starts by connecting in the clear, and upgrades to an
     encrypted connection if the authoritative server supports it.
 
-	This is vulnerable to downgrade attacks. The initial cleartext
+    This is vulnerable to downgrade attacks. The initial cleartext
     connection adds latency, and would need to be specified carefully
     to avoid privacy leaks.
 
@@ -160,7 +160,7 @@ There are three basic alternatives:
     querying concurrently, and by placing the new records on the
     existing resolution path.
 
-	DNSSEC can provide authentication and downgrade protection.
+    DNSSEC can provide authentication and downgrade protection.
 
 This specification takes the last option, since it is best for
 security and not too bad for performance.
@@ -239,10 +239,10 @@ delegation: they are restricted to NS, DS, and glue addresses. But in
 principle the parent zone could contain information about a delegation
 in a separate subdomain, like
 
-        myzone.example.    NS    ns1.myzone.example.
-		myzone.example.    NS    ns2.myzone.example.
-		_853._tcp.ns1.myzone._dot.example.    TLSA (...)
-		_853._tcp.ns2.myzone._dot.example.    TLSA (...)
+        zone.example.    NS    ns1.zone.example.
+        zone.example.    NS    ns2.zone.example.
+        _853._tcp.ns1.zone._dot.example.    TLSA (...)
+        _853._tcp.ns2.zone._dot.example.    TLSA (...)
 
 The `_dot` tag makes the TLSA records into authoritative data in the
 parent zone, rather than non-authoritative glue. The parent zone's
@@ -254,7 +254,7 @@ Although this idea would be secure and fast, it is incompatible with
 EPP, so it is not deployable.
 
 
-## Encryption signal in DS records?
+## New DS record algorithm?
 
 The basic idea is to introduce a special DNSSEC algorithm number that
 can be used in DS records to indicate support for encryption. This
@@ -283,7 +283,7 @@ abuse DS records for an unintended purpose.
     then it requires orders of magnitude more work to deploy.
 
 
-## Encryption signal in nameserver addresses?
+## Special-use nameserver addresses?
 
 Could we abuse special IP addresses (such as a new special-use IPv6
 address block) to signal support for encryption? This terrible idea is
@@ -294,11 +294,71 @@ listed for completeness; it's bad because:
     as normal IP addresses;
 
   * Glue addresses are not authenticated by DNSSEC so it's vulnerable
-    to downgrade attacks.
+    to downgrade attacks if the connection to the parent zone's
+    nameserver is insecure.
 
 
-## Encryption signal alongside nameserver addresses
+## TLSA records alongside nameserver addresses
 
+This idea is to use TLSA records in a straightforward way:
+
+        ns1.zone.example.    A     192.0.2.1
+        ns1.zone.example.    AAAA  2001:db8::1
+        _853._tcp.ns1.zone.example.    TLSA    ( ... )
+
+The TLSA records only appear in the zone's authoritative data, so
+there are no delegation-related complications. They are signed with
+DNSSEC, which protects against downgrade attacks.
+
+It does not add any significant delay compared to a resolver that
+validates nameserver addresses: when the resolver queries for the
+nameserver's A and AAAA records, and the zone's DNSKEY records, it can
+also concurrently request the nameserver's TLSA records.
+
+There is a clear framework for supporting other transports such as
+QUIC, by adding more TLSA records. (With the caveat that each new
+transport requires another query because the TLSA owner name varies
+per transport.)
+
+The main problem with this setup is that it needs something like glue:
+in many cases a resolver will need to know a nameserver's TLSA records
+in order to securely fetch the nameserver's TLSA records.
+
+
+## TLSA records without glue
+
+The DNS needs glue addresses when a resolver follows a referral to a
+zone whose nameservers are under the zone cut. When the resolver wants
+to make an encrypted connection to these nameservers, it also needs
+the TLSA records, which are also under the zone cut.
+
+The resolver can make an unencrypted query for the TLSA records, then
+upgrade to an encrypted connection. This leaks the zone name to
+on-path passive attackers. The extra query is also slower.
+
+This might be acceptable in limited circumstances: If the zone
+containing the nameserver records is not used for other purposes, then
+a passive snoop already knows the zone name from the IP address of the
+nameserver. Queries for other domains hosted on the same nameserver
+can remain private.
+
+
+## Encryption hint in nameserver hostname
+
+The last place where we might signal support for encryption is in the
+nameserver hostname itself. There are a couple of ways this might be
+done:
+
+  * Just a hint that encrypted connections are possible;
+
+  * Pack an authenticator into the hostname. (There is room for more
+    than 300 bits in a domain name label.)
+
+Nameserver hostnames appear both in the zone's apex NS RRset, which
+can be authenticated by DNSSEC, and in the delegation NS RRset, which
+is not authenticated. So referrals are vulnerable to
+encryption-stripping downgrade attacks if the connection to the parent
+zone's nameserver is insecure.
 
 
 
