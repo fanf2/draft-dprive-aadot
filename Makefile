@@ -9,8 +9,8 @@ all: ${OUT}
 ${DRAFT}.html: ${DRAFT}.xml
 	xml2rfc --html -o ${DRAFT}.html ${DRAFT}.xml
 
-${DRAFT}.xml: draft.md
-	${MMARK} -2 draft.md >${DRAFT}.xml
+${DRAFT}.xml: draft.md fixxml.sh
+	${MMARK} -2 draft.md | ./fixxml.sh >${DRAFT}.xml
 
 ${DRAFT}.txt: ${DRAFT}.xml
 	xml2rfc --raw -o ${DRAFT}.txt ${DRAFT}.xml
