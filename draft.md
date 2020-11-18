@@ -192,6 +192,45 @@ This specification takes the last option, since it is best for
 security and not too bad for performance.
 
 
+## TLS certificate authentication
+
+The DNS does not currently depend on the name that appears in an NS
+target, provided it resolves to the IP address(es) of the intended server.
+In particular the NS name does not have to be the server operator's
+preferred name. Zone operators sometimes use different nameserver names
+because they prefer to avoid glueless delegations, for example.
+
+The widespread use of unofficial nameserver names means it is impossible
+for a nameserver to present a certificate that always matches the
+`subjectAltName` `dNSName` [@!RFC6125] expected by the client. There are a
+number of ways to avoid this problem:
+
+  * Authenticate the server by `subjectAltName` `iPAddress`. Unfortunately
+    IP address certificates are hard to obtain (though this is likely to
+    become easier after [@?RFC8738] is deployed). This is only an advantage
+    when there is no signal associated with the nameserver's name (such as
+    TLSA records) to indicate support for encrypted transports, because if
+    there is such a signal the client knows what name to expect in the
+    certificate.
+
+  * Use the syntax of the name, such as a `dot--` prefix, to indicate
+    that the name will match the certificate. This has the
+    disadvantage of requiring all delegations to be updated. (See the
+    discussion of "scalability" below.)
+
+  * Ignore certificate name mismatches, and authenticate just the public
+    key. This raises the question of how the client can find out the right
+    public key: if it can find out the right key why can't it also
+    find out the right name? It has the disadvantage that public key
+    pinning has a poor operational track record.
+
+  * Use the presence of a DNS record associated with the nameserver
+    name to indicate that the server's certificate will match the
+    name. This specification uses TLSA records alongside the
+    nameserver's address records; other possible kinds of records for
+    doing this job are discussed in the following subsections.
+
+
 ## Where can nameserver encryption records go?
 
 Where can we put the new DNS records to signal that a nameserver
