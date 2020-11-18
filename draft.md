@@ -250,12 +250,44 @@ supports encryption? There are a number of issues to consider:
   5. DNS extensibility: make use of well-oiled upgrade points and
      avoid changes that have a track record of very slow deployment;
 
-  6. EPP compatibility: a zone's delegation is usually managed via the
-     Extensible Provisioning Protocol [@?RFC5730] [@?RFC5731]
-     [@?RFC5732] so any changes need to work with EPP.
+  6. Compatibility: a zone's delegation is usually managed by
+     non-nameserver software discussed in the next subsection; any
+     changes to the DNS need to work with the wide ecosystem of
+     delegation management systems.
 
-The following subsections discuss the possible locations, and explain
-why most of them have been rejected.
+The following subsections discuss the possible locations for DNS
+records that indicate a nameserver supports encrypted transports, and
+explain why most of the possibilities have been rejected.
+
+
+## Delegation management systems
+
+Alongside the DNS itself there are many systems that manage the
+contents of the DNS (which records appear at which names) and the
+structure of the DNS (zones and delegations). These include:
+
+  * The TLD registry / registrar system, and the Extensible
+    Provisioning Protocol [@?RFC5730] [@?RFC5731] [@?RFC5732] by which
+    registrars manage registrations and domain delegations.
+
+  * The various proprietary registrar user interfaces and APIs by
+    which registrants can manage their domain delegations.
+
+  * The regional internet registries have proprietary user interfaces
+    and APIs for managing delegations in the reverse DNS.
+
+  * IPAM (IP address management) software that handles DNS and DHCP in
+    large organizations.
+
+Any significant change to how DNS delegations work cannot be deployed
+without upgrades these DNS management systems. "Significant" means any
+change to the types of records that need to be published in the parent
+zone for the new kind of delegation to work. For instance, DS records
+and IPv6 were significant changes.
+
+New DS or DNSKEY algorithms are less significant, since they fit
+within the existing syntax but may need new checking code. Changes to
+nameserver names or addresses are insignificant.
 
 
 ## In the reverse DNS?
@@ -294,7 +326,7 @@ will treat it as insecure.
 We might use this upgrade strategy to introduce new delegation records
 that indicate support for transport encryption. However, it would
 require a very long deployment timeline. It would also require a
-corresponding upgrade to EPP.
+corresponding upgrade to delegation management systems.
 
 This is much too difficult.
 
@@ -318,8 +350,8 @@ authenticate them with DNSSEC and immediately use an encrypted
 connection to the child zone's nameservers.
 
 Although this idea would be secure and fast and compatible with the
-DNS, it is incompatible with EPP, so it is not realistically
-deployable.
+DNS, it is not scalable, nor is it compatible with existing delegation
+management systems, so it is not realistically deployable.
 
 
 ## New DS record algorithm?
@@ -340,11 +372,11 @@ abuse DS records for an unintended purpose.
     records.
 
   * There is a similar problem with ensuring that these DS records can
-    be updated through EPP. There are registries that generate DS
-    records from DNSKEY records themselves, rather than using DS
-    records submitted by the zone owner, so these encryption DS
-    records would have to be specified as the hash of a special DNSKEY
-    record.
+    be updated through delegation management systems. There are TLD
+    registries that generate DS records from DNSKEY records
+    themselves, rather than using DS records submitted by the zone
+    owner, so these encryption DS records would have to be specified
+    as the hash of a special DNSKEY record.
 
   * Poor scalability: there are orders of magnitude more zones than
     there are nameservers. If the encryption signal is per-zone like
@@ -374,8 +406,9 @@ itself, like [@?DNScurve]. There is room for more than 300 bits in a
 domain name label, which is enough space to pack an authenticator
 (such as a cryptographic hash of a certificate) into the hostname.
 
-This trick would be compatible with the existing DNS and EPP, and it
-avoids adding delays. But there are problems.
+This trick would be compatible with the existing DNS and delegation
+management systems, and it avoids adding delays. But there are
+problems.
 
 This idea would involve specifying a label format with roughly the
 same functionality as a TLSA record.
@@ -478,3 +511,9 @@ resolver to leak the zone name.
         <date year='2009'/>
     </front>
 </reference>
+
+
+# Acknowledgments
+
+Thanks to Manu Bretelle, Brian Dickson, Peter van Dijk, and Scott
+Hollenbeck for helpful feedback.
