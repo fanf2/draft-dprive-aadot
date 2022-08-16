@@ -437,6 +437,11 @@ QUIC, by adding more TLSA records. (With the caveat that each new
 transport requires another query because the TLSA owner name varies
 per transport.)
 
+This setup has good scalability: the extra records depend on the
+number of namesevrers, independent of the number of zones. Existing
+delegations do not need to be updated to support encryption if they
+use a nameserver's canonical name.
+
 The main problem with this setup is that it appears to need something
 like glue: in many cases a resolver will need to know a nameserver's
 TLSA records in order to securely fetch the nameserver's TLSA records.
