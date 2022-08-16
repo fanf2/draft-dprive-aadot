@@ -1,7 +1,8 @@
 Authenticated transport encryption for authoritative DNS
 ========================================================
 
-Run `make` to rebuild the generated files from the `draft.md` source.
+Run `gmake` (GNU make) to rebuild the generated files from the
+`draft.md` source.
 
 The markdown source is converted to RFC XML format using `mmark`
 

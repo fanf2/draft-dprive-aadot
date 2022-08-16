@@ -1,19 +1,20 @@
-MMARK=${GOPATH}/bin/mmark
+MMARK	=	mmark
+XML2RFC	=	xml2rfc
 
-DRAFT!=./stamp.sh
+DRAFT	!=	./stamp.sh
 
-OUT= ${DRAFT}.html ${DRAFT}.xml ${DRAFT}.txt
+OUT	=	${DRAFT}.html ${DRAFT}.xml ${DRAFT}.txt
 
 all: ${OUT}
 
-${DRAFT}.html: ${DRAFT}.xml
-	xml2rfc --html -o ${DRAFT}.html ${DRAFT}.xml
-
 ${DRAFT}.xml: draft.md fixxml.sh
-	${MMARK} -2 draft.md | ./fixxml.sh >${DRAFT}.xml
+	${MMARK} draft.md | ./fixxml.sh >${DRAFT}.xml
+
+${DRAFT}.html: ${DRAFT}.xml
+	${XML2RFC} --html -o ${DRAFT}.html ${DRAFT}.xml
 
 ${DRAFT}.txt: ${DRAFT}.xml
-	xml2rfc --raw -o ${DRAFT}.txt ${DRAFT}.xml
+	${XML2RFC} --text -o ${DRAFT}.txt ${DRAFT}.xml
 
 commit: ${OUT}
 	git add ${OUT}
