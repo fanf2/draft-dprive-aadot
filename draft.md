@@ -5,7 +5,7 @@ workgroup       = "DNS Privacy"
 area            = "Internet"
 submissiontype  = "IETF"
 ipr             = "trust200902"
-date            = 2022-08-16T19:14:43Z
+date            = 2022-08-16T20:24:14Z
 keyword         = [ "DNS", "TLS" ]
 
 [seriesInfo]
@@ -35,10 +35,6 @@ This note describes how a DNS resolver can establish an encrypted
 DNS-over-TLS connection to an authoritative DNS server, authenticated
 using TLSA records.
 
-At the moment the specification is just a sketch. The main purpose of
-this early draft is to discuss the rationale, which examines the
-various options for adding encryption to the DNS.
-
 
 {mainmatter}
 
@@ -49,28 +45,24 @@ The DNS has two weaknesses that can be fixed by encrypting connections
 from DNS resolvers to authoritative servers:
 
   * Cleartext DNS has a privacy leak: the contents of queries and
-    responses are visible to on-path passive attackers;
+    responses are visible to on-path passive attackers ("snoopers");
 
   * DNS messages are vulnerable to alteration by on-path active
     attackers.
 
 DNSSEC protects the integrity and authenticity of most DNS data, but
 it does not protect delegation NS records or glue, nor does it protect
-other parts of a DNS message such as its header and OPT record.
+other parts of a DNS message such as its header and EDNS options.
 
 This memo specifies a way to use DNS-over-TLS for connections from
 resolvers to authoritative servers. TLSA records indicate that
 encrypted connections are possible and how they can be authenticated.
 
-At the moment the specification is just a sketch. The main purpose of
-this early draft is to discuss the rationale in (#rationale), which
-examines the various options for adding encryption.
-
 
 ## Overview
 
-A zone's apex NS RRset lists the hostnames of the zone's authoritative
-nameservers, for example,
+A zone's delegation NS RRset lists the hostnames of the zone's
+authoritative nameservers, for example,
 
         zone.example.    NS    ns1.hoster.example.
         zone.example.    NS    nsa.2ndary.example.
@@ -91,13 +83,17 @@ below its zone cut and therefore its zone's delegation requires glue
         hoster.example.    NS    ns1.hoster.example.
         hoster.example.    NS    ns2.hoster.example.
 
-To allow a resolver to use an encrypted transport before it can get a
-nameserver's TLSA records, we change the nameserver's hostname to
-include a tag that indicates which transports it supports, as
-described in (#hints), for example,
+In this situation, the resolver can send cleartext queries to the
+nameserver for the nameserver's TLSA RRset, and its zone's DNSKEY
+RRset for authenticating the TLSA RRset. Although the contents of
+these queries are visible to on-path passive attackers, they only
+contain information about the authoritative nameserver. As discussed
+in (#glueful), if the nameserver is referred to by its canonical name,
+a snooper does not learn anything interesting from these queries.
 
-        hoster.example.    NS    dot--ns1.hoster.example.
-        hoster.example.    NS    dot--ns2.hoster.example.
+These extra DNS queries do not necessarily slow down a resolver, as
+explained in (#performance), and in some cases they can be faster than
+unauthenticated unilateral DoT probing.
 
 
 ## Terminology
@@ -116,26 +112,20 @@ capitals, as shown here.
 (Detailed TLSA profile TBD)
 
 
-# Authoritative DNS server aliases {#hints}
-
-Sketch:
-
-  * when nameservers can continue to use their existing names
-
-  * when `dot--` hints are required
-
-  * servers that support encryption for a subset of zones
-
-
 # Resolver algorithm {#algorithm}
 
-TBD
+## Choice of name server
 
+## Performance {#performance}
 
-# IANA considerations {#iana}
+Make TLSA, DNSKEY queries concurrently with establishing TLS
+connection; the queries should complete before the TLS server hello
+arrives, so the resolver should be able to authenticate the
+certificate without delay.
 
-TBD registry for encryption hint tags, e.g. `dot--`, `doq--`, `doqt--`
+Use a short TLS timeout if the TLSA response is negative
 
+## Nameservers that require glue {#glueful}
 
 # Security considerations
 
@@ -161,8 +151,7 @@ There are three basic alternatives:
     especially if the resolver tries multiple encrypted transports.
     This is also is vulnerable to downgrade attacks.
 
-    The working group consensus is that an explicit signal is
-    required.
+    This alternative is described in unilateral probing (ref tbd)
 
  2. Signal in an EDNS [@?RFC6891] or DSO [@?RFC8490] option: the
     resolver starts by connecting in the clear, and upgrades to an
@@ -176,14 +165,14 @@ There are three basic alternatives:
     iterative resolution to find out whether an authoritative server
     supports encryption, before the resolver connects to it.
 
-    The extra queries add latency, though that can be mitigated by
-    querying concurrently, and by placing the new records on the
-    existing resolution path.
+    The extra queries can add latency. That might be mitigated by
+    placing the new records on the existing resolution path, or by
+    doing more concurrently.
 
     DNSSEC can provide authentication and downgrade protection.
 
 This specification takes the last option, since it is best for
-security and not too bad for performance.
+security, and it uses concurrency to get acceptable performance.
 
 
 ## TLS certificate authentication
@@ -247,7 +236,7 @@ supports encryption? There are a number of issues to consider:
   6. Compatibility: a zone's delegation is usually managed by
      non-nameserver software discussed in the next subsection; any
      changes to the DNS need to work with the wide ecosystem of
-     delegation management systems.
+     delegation and registry management systems.
 
 The following subsections discuss the possible locations for DNS
 records that indicate a nameserver supports encrypted transports, and
@@ -270,8 +259,8 @@ structure of the DNS (zones and delegations). These include:
   * The regional internet registries have proprietary user interfaces
     and APIs for managing delegations in the reverse DNS.
 
-  * IPAM (IP address management) software that handles DNS and DHCP in
-    large organizations.
+  * Enterprise IPAM (IP address management) software that handles DNS
+    and DHCP in large organizations.
 
 Any significant change to how DNS delegations work cannot be deployed
 without upgrades these DNS management systems. "Significant" means any
@@ -290,7 +279,7 @@ Given a nameserver's IP address, a resolver might make a query like
 
         _853._tcp.1.2.0.192.in-addr.arpa.    TLSA?
 
-This possibility is rejected because:
+This possibility was rejected because:
 
   * It would be very slow: after receiving a referral, a resolver
     would have to iterate down the reverse DNS, instead of immediately
@@ -302,10 +291,10 @@ This possibility is rejected because:
 
   * It's often difficult to put arbitrary records in the reverse DNS.
 
-  * Encryption would apply to the server as a whole, whereas the
-    working group consensus is that it should be possible for
-    different zones on the same server to use encrypted and
-    unencrypted transports.
+  * Encryption would apply to the server as a whole, whereas many
+    operators would like to be able to set up different zones on the
+    same server with encrypted and unencrypted transports. This can
+    make testing and staged rollout easier.
 
 
 ## A new kind of delegation?
@@ -345,7 +334,8 @@ connection to the child zone's nameservers.
 
 Although this idea would be secure and fast and compatible with the
 DNS, it is not scalable, nor is it compatible with existing delegation
-management systems, so it is not realistically deployable.
+and registry management systems, so it is not realistically
+deployable.
 
 
 ## New DS record algorithm?
@@ -439,20 +429,17 @@ The TLSA records only appear in the zone's authoritative data, so
 there are no delegation-related complications. They are signed with
 DNSSEC, which protects against downgrade attacks.
 
-It does not add any significant delay compared to a resolver that
-validates nameserver addresses: when the resolver queries for the
-nameserver's A and AAAA records, and the nameserver's zone's DNSKEY
-records, it can also concurrently request the nameserver's TLSA
-records.
+As discussed in (#performance), it does not necessarily add any
+significant delay, and can perform better than unilateral probing.
 
 There is a clear framework for supporting other transports such as
 QUIC, by adding more TLSA records. (With the caveat that each new
 transport requires another query because the TLSA owner name varies
 per transport.)
 
-The main problem with this setup is that it needs something like glue:
-in many cases a resolver will need to know a nameserver's TLSA records
-in order to securely fetch the nameserver's TLSA records.
+The main problem with this setup is that it appears to need something
+like glue: in many cases a resolver will need to know a nameserver's
+TLSA records in order to securely fetch the nameserver's TLSA records.
 
 
 ## Glue and nameserver TLSA records
@@ -465,35 +452,17 @@ under the zone cut.
 
 The resolver can make an unencrypted query for the TLSA records, then
 upgrade to an encrypted connection. This leaks the zone name to
-on-path passive attackers. The extra query is also slower.
+on-path passive attackers.
 
-This might be acceptable in limited circumstances: If the zone
-containing the nameserver records is not used for other purposes, then
-a passive snoop already knows the zone name from the IP address of the
-nameserver. Queries for other domains hosted on the same nameserver
-can remain private.
+This might be acceptable in limited circumstances. A snooper can
+obtain a map from IP addresses to nameserver names from public sources
+such as passive DNS feeds and TLD zone files. If the delegation refers
+to the nameserver by its canonical name, then the extra queries do not
+leak any information that cannot be inferred from the nameserver's IP
+address.
 
-
-## Encryption hint in nameserver hostname
-
-Unlike embedding a complete authenticator in the nameserver hostname,
-this idea adds a tag such as `dot--` to indicate that the nameserver
-supports an encrypted transport. The nameserver's authenticators are
-published in TLSA records.
-
-This idea avoids scalability problems, because encryption hints are
-only needed for nameservers that require glue ([@!RFC1034] section
-4.2.1) and which cannot tolerate the privacy leak and delay that occur
-when a resolver upgrades to an encrypted connection after fetching a
-nameserver's TLSA records. Most zones can continue use the same
-nameserver hostnames they use now, without `dot--` tags, as discussed
-in (#hints).
-
-Encryption hints are vulnerable to downgrade attacks if the connection
-to the parent zone's nameserver is insecure. A resolver can avoid
-being completely downgraded using the procedure described in the
-previous subsection, but a downgrade attack can still force the
-resolver to leak the zone name.
+Queries for other domains hosted on the same nameserver can remain
+private.
 
 
 {backmatter}
