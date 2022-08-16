@@ -1,37 +1,31 @@
 %%%
 title           = "Authenticated transport encryption for authoritative DNS"
-abbrev          = "ADoT"
+abbrev          = "aaDoT"
 workgroup       = "DNS Privacy"
 area            = "Internet"
 submissiontype  = "IETF"
 ipr             = "trust200902"
-date            = 2020-11-11T18:51:32Z
-keyword         = [
-    "DNS",
-    "TLS",
-]
+date            = 2022-08-16T19:14:43Z
+keyword         = [ "DNS", "TLS" ]
 
 [seriesInfo]
 name            = "Internet-Draft"
 value           = "draft-fanf-dprive-adot-00"
 status          = "standard"
+stream          = "IETF"
 
 [[author]]
 initials        = "T."
 surname         = "Finch"
 fullname        = "Tony Finch"
-organization    = "University of Cambridge"
+organization    = "Internet Systems Consortium"
  [author.address]
  email          = "dot@dotat.at"
   [author.address.postal]
-  streets       = [
-    "University Information Services",
-    "Roger Needham Building",
-    "7 JJ Thomson Avenue",
-  ]
-  city          = "Cambridge"
-  country       = "England"
-  code          = "CB3 0RB"
+  streets       = [ "PO Box 360" ]
+  city          = "Newmarket"
+  code          = "NH 03857"
+  country       = "USA"
 
 %%%
 
